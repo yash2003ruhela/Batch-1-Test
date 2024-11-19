@@ -2,9 +2,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         const response = await fetch("http://localhost:3001/data");
         const data = await response.json();
-        let filteredData = [...data]; // Keep original data separate
+        let filteredData = [...data]; 
         const leaderboardBody = document.getElementById('leaderboard-body');
         const sectionFilter = document.getElementById('section-filter');
+        let pinnedRows = [];
 
         // Populate section filter dropdown
         const populateSectionFilter = () => {
@@ -50,25 +51,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Function to render the leaderboard
         const renderLeaderboard = (sortedData) => {
             leaderboardBody.innerHTML = '';
-            sortedData.forEach((student, index) => {
-                const row = document.createElement('tr');
-                row.classList.add('border-b', 'border-gray-700');
-                row.innerHTML = `
-                    <td class="p-4">${index + 1}</td>
-                    <td class="p-4">${student.roll}</td>
-                    <td class="p-4">
-                        ${student.url.startsWith('https://leetcode.com/u/') 
-                            ? `<a href="${student.url}" target="_blank" class="text-blue-400">${student.name}</a>`
-                            : `<div class="text-red-500">${student.name}</div>`}
-                    </td>
-                    <td class="p-4">${student.section || 'N/A'}</td>
-                    <td class="p-4">${student.totalSolved || 'N/A'}</td>
-                    <td class="p-4 text-green-400">${student.easySolved || 'N/A'}</td>
-                    <td class="p-4 text-yellow-400">${student.mediumSolved || 'N/A'}</td>
-                    <td class="p-4 text-red-400">${student.hardSolved || 'N/A'}</td>
-                `;
+            // First render the pinned rows
+            pinnedRows.forEach(student => {
+                const row = createRow(student, true);
                 leaderboardBody.appendChild(row);
             });
+
+            // Then render the remaining rows
+            sortedData.forEach((student, index) => {
+                if (!pinnedRows.includes(student)) { // Skip pinned rows
+                    const row = createRow(student);
+                    leaderboardBody.appendChild(row);
+                }
+            });
+        };
+
+        // Create row for a student
+        const createRow = (student, isPinned = false) => {
+            const row = document.createElement('tr');
+            row.classList.add('border-b', 'border-gray-700');
+            row.innerHTML = `
+                <td class="p-4">${isPinned ? 'Pinned' : ''}</td>
+                <td class="p-4">${student.roll}</td>
+                <td class="p-4">
+                    ${student.url.startsWith('https://leetcode.com/u/') 
+                        ? `<a href="${student.url}" target="_blank" class="text-blue-400">${student.name}</a>`
+                        : `<div class="text-red-500">${student.name}</div>`}
+                </td>
+                <td class="p-4">${student.section || 'N/A'}</td>
+                <td class="p-4">${student.totalSolved || 'N/A'}</td>
+                <td class="p-4 text-green-400">${student.easySolved || 'N/A'}</td>
+                <td class="p-4 text-yellow-400">${student.mediumSolved || 'N/A'}</td>
+                <td class="p-4 text-red-400">${student.hardSolved || 'N/A'}</td>
+                <td class="p-4">
+                    <button class="pin-btn text-blue-500">Pin</button>
+                </td>
+            `;
+            const pinBtn = row.querySelector('.pin-btn');
+            pinBtn.addEventListener('click', () => pinRow(student));
+            return row;
+        };
+
+        // Pin or unpin a row
+        const pinRow = (student) => {
+            if (pinnedRows.includes(student)) {
+                // Unpin if already pinned
+                pinnedRows = pinnedRows.filter(pinnedStudent => pinnedStudent !== student);
+            } else {
+                // Pin if not already pinned
+                pinnedRows.push(student);
+            }
+            renderLeaderboard(filteredData); // Re-render the leaderboard with updated pinned rows
         };
 
         // Filter function
@@ -146,4 +179,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error('Error fetching data:', error);
     }
-});
+}
+);

@@ -1,12 +1,14 @@
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const response = await fetch("http://localhost:3001/data");
         const data = await response.json();
-        let filteredData = [...data]; 
+        let filteredData = [...data]; // Keep original data separate
         const leaderboardBody = document.getElementById('leaderboard-body');
         const sectionFilter = document.getElementById('section-filter');
-        let pinnedRows = [];
+      
 
+        
         // Populate section filter dropdown
         const populateSectionFilter = () => {
             const sections = [...new Set(data.map(student => student.section || 'N/A'))].sort();
@@ -18,6 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 sectionFilter.appendChild(option);
             });
         };
+
+
 
         // Function to export data to CSV
         const exportToCSV = (data) => {
@@ -48,60 +52,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.removeChild(link);
         };
 
+
+
+
         // Function to render the leaderboard
         const renderLeaderboard = (sortedData) => {
             leaderboardBody.innerHTML = '';
-            // First render the pinned rows
-            pinnedRows.forEach(student => {
-                const row = createRow(student, true);
+            sortedData.forEach((student, index) => {
+                const row = document.createElement('tr');
+                row.classList.add('border-b', 'border-gray-700');
+                row.innerHTML = `
+                    <td class="p-4">${index + 1}</td>
+                    <td class="p-4">${student.roll}</td>
+                    <td class="p-4">
+                        ${student.url.startsWith('https://leetcode.com/u/') 
+                            ? `<a href="${student.url}" target="_blank" class="text-blue-400">${student.name}</a>`
+                            : `<div class="text-red-500">${student.name}</div>`}
+                    </td>
+                    <td class="p-4">${student.section || 'N/A'}</td>
+                    <td class="p-4">${student.totalSolved || 'N/A'}</td>
+                    <td class="p-4 text-green-400">${student.easySolved || 'N/A'}</td>
+                    <td class="p-4 text-yellow-400">${student.mediumSolved || 'N/A'}</td>
+                    <td class="p-4 text-red-400">${student.hardSolved || 'N/A'}</td>
+                    <td class="p-4">
+                        <button class="pin-row bg-blue-500 text-white px-2 py-1 rounded">Pin</button>
+                    </td>
+                `;
                 leaderboardBody.appendChild(row);
             });
-
-            // Then render the remaining rows
-            sortedData.forEach((student, index) => {
-                if (!pinnedRows.includes(student)) { // Skip pinned rows
-                    const row = createRow(student);
-                    leaderboardBody.appendChild(row);
-                }
-            });
-        };
-
-        // Create row for a student
-        const createRow = (student, isPinned = false) => {
-            const row = document.createElement('tr');
-            row.classList.add('border-b', 'border-gray-700');
-            row.innerHTML = `
-                <td class="p-4">${isPinned ? 'Pinned' : ''}</td>
-                <td class="p-4">${student.roll}</td>
-                <td class="p-4">
-                    ${student.url.startsWith('https://leetcode.com/u/') 
-                        ? `<a href="${student.url}" target="_blank" class="text-blue-400">${student.name}</a>`
-                        : `<div class="text-red-500">${student.name}</div>`}
-                </td>
-                <td class="p-4">${student.section || 'N/A'}</td>
-                <td class="p-4">${student.totalSolved || 'N/A'}</td>
-                <td class="p-4 text-green-400">${student.easySolved || 'N/A'}</td>
-                <td class="p-4 text-yellow-400">${student.mediumSolved || 'N/A'}</td>
-                <td class="p-4 text-red-400">${student.hardSolved || 'N/A'}</td>
-                <td class="p-4">
-                    <button class="pin-btn text-blue-500">Pin</button>
-                </td>
-            `;
-            const pinBtn = row.querySelector('.pin-btn');
-            pinBtn.addEventListener('click', () => pinRow(student));
-            return row;
-        };
-
-        // Pin or unpin a row
-        const pinRow = (student) => {
-            if (pinnedRows.includes(student)) {
-                // Unpin if already pinned
-                pinnedRows = pinnedRows.filter(pinnedStudent => pinnedStudent !== student);
-            } else {
-                // Pin if not already pinned
-                pinnedRows.push(student);
-            }
-            renderLeaderboard(filteredData); // Re-render the leaderboard with updated pinned rows
         };
 
         // Filter function
@@ -112,12 +90,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderLeaderboard(filteredData);
         };
 
+
+
+
+        // Pin Row Functionality (move row to top on button click)
+        const pinRow = (e) => {
+            // Check if the clicked element is the 'Pin' button
+            if (e.target && e.target.classList.contains('pin-row')) {
+                const clickedRow = e.target.closest('tr');
+                leaderboardBody.insertBefore(clickedRow, leaderboardBody.firstChild);
+            }
+        };
+
         // Sorting logic with ascending and descending functionality
-        let totalSolvedDirection = 'desc';
-        let easySolvedDirection = 'desc';
-        let mediumSolvedDirection = 'desc';
-        let hardSolvedDirection = 'desc';
-        let sectionDirection = 'asc';
+        let directions = {
+            totalSolved: 'desc',
+            easySolved: 'desc',
+            mediumSolved: 'desc',
+            hardSolved: 'desc',
+            section: 'asc'
+        };
 
         const sortData = (data, field, direction, isNumeric = false) => {
             return data.sort((a, b) => {
@@ -130,6 +122,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ? valB.toString().localeCompare(valA.toString())
                         : valA.toString().localeCompare(valB.toString());
                 }
+            });
+        };
+
+        // Event Listener for Sorting
+        const addSortEventListener = (id, field, isNumeric = false) => {
+            document.getElementById(id).addEventListener('click', () => {
+                directions[field] = directions[field] === 'desc' ? 'asc' : 'desc';
+                const sortedData = sortData(filteredData, field, directions[field], isNumeric);
+                renderLeaderboard(sortedData);
             });
         };
 
@@ -146,38 +147,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             exportToCSV(filteredData); // Export only filtered data
         });
 
-        document.getElementById('sort-section').addEventListener('click', () => {
-            sectionDirection = sectionDirection === 'desc' ? 'asc' : 'desc';
-            const sortedData = sortData(filteredData, 'section', sectionDirection, false);
-            renderLeaderboard(sortedData);
-        });
+        addSortEventListener('sort-section', 'section', false);
+        addSortEventListener('sort-total', 'totalSolved', true);
+        addSortEventListener('sort-easy', 'easySolved', true);
+        addSortEventListener('sort-medium', 'mediumSolved', true);
+        addSortEventListener('sort-hard', 'hardSolved', true);
 
-        document.getElementById('sort-total').addEventListener('click', () => {
-            totalSolvedDirection = totalSolvedDirection === 'desc' ? 'asc' : 'desc';
-            const sortedData = sortData(filteredData, 'totalSolved', totalSolvedDirection, true);
-            renderLeaderboard(sortedData);
-        });
-
-        document.getElementById('sort-easy').addEventListener('click', () => {
-            easySolvedDirection = easySolvedDirection === 'desc' ? 'asc' : 'desc';
-            const sortedData = sortData(filteredData, 'easySolved', easySolvedDirection, true);
-            renderLeaderboard(sortedData);
-        });
-
-        document.getElementById('sort-medium').addEventListener('click', () => {
-            mediumSolvedDirection = mediumSolvedDirection === 'desc' ? 'asc' : 'desc';
-            const sortedData = sortData(filteredData, 'mediumSolved', mediumSolvedDirection, true);
-            renderLeaderboard(sortedData);
-        });
-
-        document.getElementById('sort-hard').addEventListener('click', () => {
-            hardSolvedDirection = hardSolvedDirection === 'desc' ? 'asc' : 'desc';
-            const sortedData = sortData(filteredData, 'hardSolved', hardSolvedDirection, true);
-            renderLeaderboard(sortedData);
-        });
+        // Pin row event listener
+        leaderboardBody.addEventListener('click', pinRow);
 
     } catch (error) {
         console.error('Error fetching data:', error);
     }
-}
-);
+});
